@@ -1,16 +1,19 @@
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
-
 import os
 import sys
-
 import json
+import base64
 
 MAX_MEMORY_USAGE = 2**32
-def write_to_file(filepath: str,data: dict):
 
-    with open(f"{filepath}","a+") as file:
-        file.write(json.dumps(data))
+def write_to_file(selec: int,filepath: str,data):
+    if selec == 1:
+        with open(f"{filepath}","a+") as file:
+            file.write(json.dumps(data))
+    if selec == 2:
+        with open(f"{filepath}","w+b") as file:
+            file.write(data)
 
 def aes256gcm_encrypt(key: bytes,data: bytes,header: bytes,nonce: bytes,tag_size: int) -> list:
 
@@ -19,6 +22,8 @@ def aes256gcm_encrypt(key: bytes,data: bytes,header: bytes,nonce: bytes,tag_size
     ciphertext, tag = cipher.encrypt_and_digest(data)
 
     encrypted_obj = [ciphertext,tag,header,nonce,tag_size]
+    print(data)
+    print(encrypted_obj)
 
     return encrypted_obj
 
@@ -27,6 +32,8 @@ def aes256gcm_decrypt(key: bytes,data: bytes,header: bytes,nonce: bytes,tag: byt
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce, mac_len = tag_size)
     cipher.update(header)
     decrypted_data = cipher.decrypt_and_verify(data, tag)
+
+    print(decrypted_data)
 
     return decrypted_data
 
@@ -66,7 +73,6 @@ Values             Info
                    "enc","dec", respectively.
 
 --tag or -tg       tag used to encrypt.
-
 ''')
 def tests():
 
@@ -76,7 +82,7 @@ def tests():
 
     key = b"1234567890123456" # 16 byte key to use aes256
 
-    nonce = b"123456789012"
+    nonce = b"123456789012456"
 
     header = b"BHZTK_AES-GCM"
 
@@ -88,6 +94,9 @@ def tests():
 
     print("Encrypted data: ",encrypted_data)
 
+    for i in encrypted_data:
+        print(type(i))
+
     # encrypt data in chunks
     print("Encrypted data in chunks:")
     encrypted_chunk_data = []
@@ -98,6 +107,17 @@ def tests():
     print("encrypted_chunk_data: ",end='')
     for encrypted_chunk in encrypted_chunk_data:
         print(encrypted_chunk)
+
+    encoded = base64.b64encode(b'data to be encoded')
+    enc_data_save_format = {
+                        "ciphertext":base64.b64encode(encrypted_data[0]).decode("utf-8"),
+                        "tag":base64.b64encode(encrypted_data[1]).decode("utf-8"),
+                        "header":base64.b64encode(encrypted_data[2]).decode("utf-8"),
+                        "nonce":base64.b64encode(encrypted_data[3]).decode("utf-8"),
+                        "MAC_len":encrypted_data[4]
+                        }
+
+    print(enc_data_save_format)
     
 
     #decrypt data  
@@ -195,7 +215,7 @@ if __name__ == '__main__':
 
 
     if len(input_dict["nonce"]) == 0:
-            input_dict["nonce"] = str(os.urandom(16))
+            input_dict["nonce"] = str(os.urandom(16))[2:-1]
     if len(input_dict["header"]) == 0:
         input_dict["header"] = "BHZTK_AES-GCM"
 
@@ -211,32 +231,30 @@ if __name__ == '__main__':
                             bytes(input_dict["nonce"],encoding="utf-8"),
                             int(input_dict["MAC_len"]))
                     enc_data_save_format = {
-                        "ciphertext":str(enc_data[0])[2:-1],
-                        "tag":str(enc_data[1])[2:-1],
-                        "header":str(enc_data[2])[2:-1],
-                        "nonce":str(enc_data[3])[2:-1],
-                        "MAC_len":str(enc_data[4])
+                        "ciphertext":base64.b64encode(enc_data[0]).decode("utf-8"),
+                        "tag":base64.b64encode(enc_data[1]).decode("utf-8"),
+                        "header":base64.b64encode(enc_data[2]).decode("utf-8"),
+                        "nonce":base64.b64encode(enc_data[3]).decode("utf-8"),
+                        "MAC_len":enc_data[4]
                         }
                 elif os.path.isfile(input_dict["filepath"]) == True:
                     file_size = os.path.getsize(input_dict["filepath"])
                     if file_size <= MAX_MEMORY_USAGE:
                         print(file_size)
-                        byte_stream = b""
                         with open(f"{input_dict['filepath']}", "rb") as f:
-                            while (byte := f.read(1)):
-                                byte_stream += byte
-                        input_dict['data'] = str(byte_stream)
+                            byte_stream.read()
+                        input_dict['data'] = str(byte_stream)[2:-1]
                         enc_data = aes256gcm_encrypt(bytes(input_dict["key"],encoding="utf-8"),
                             bytes(input_dict["data"],encoding="utf-8"),
                             bytes(input_dict["header"],encoding="utf-8"),
                             bytes(input_dict["nonce"],encoding="utf-8"),
                             int(input_dict["MAC_len"]))
                         enc_data_save_format = {
-                        "ciphertext":str(enc_data[0])[2:-1],
-                        "tag":str(enc_data[1])[2:-1],
-                        "header":str(enc_data[2])[2:-1],
-                        "nonce":str(enc_data[3])[2:-1],
-                        "MAC_len":str(enc_data[4])
+                        "ciphertext":base64.b64encode(enc_data[0]).decode("utf-8"),
+                        "tag":base64.b64encode(enc_data[1]).decode("utf-8"),
+                        "header":base64.b64encode(enc_data[2]).decode("utf-8"),
+                        "nonce":base64.b64encode(enc_data[3]).decode("utf-8"),
+                        "MAC_len":enc_data[4]
                         }   
                 else:
                     print("NO INPUT OF DATA")
@@ -244,7 +262,7 @@ if __name__ == '__main__':
 
                 save = input("Write to disk ? (Y/n) >")
                 if save.upper() == "Y":
-                    write_to_file("newfile.bhztkencobj",enc_data_save_format)
+                    write_to_file(1,"newfile.bhztkencobj",enc_data_save_format)
 
         else:
             print("KEY MUST BE 16 OR 24 OR 32 BYTES")
@@ -254,13 +272,13 @@ if __name__ == '__main__':
                 if input_dict["data"] != b"": #use data to encrypt
                     #encrypted_obj = [ciphertext,tag,header,nonce,]
                     #key: bytes,data: bytes,header: bytes,nonce: bytes,tag: bytes
-                    dec_data = aes256gcm_decrypt(bytes(input_dict["key"],encoding="utf-8"),
-                            bytes(input_dict["ciphertext"],encoding="utf-8"),
-                            bytes(input_dict["header"],encoding="utf-8"),
-                            bytes(input_dict["nonce"],encoding="utf-8"),
-                            bytes(str(input_dict["tag"]),encoding="utf-8"),
-                            int(input_dict["MAC_len"]))
-                    dec_data_save_format = bytes(dec_data)
+                    dec_data = aes256gcm_decrypt(input_dict["key"],
+                            base64.b64decode(data["ciphertext"]),
+                            base64.b64decode(data["header"]),
+                            base64.b64decode(data["nonce"]),
+                            base64.b64decode(data["tag"]),
+                            int(data["MAC_len"]))
+                    print(dec_data)
                 elif os.path.isfile(input_dict["filepath"]) == True:
                     file_size = os.path.getsize(input_dict["filepath"])
                     if file_size <= MAX_MEMORY_USAGE:
@@ -271,18 +289,19 @@ if __name__ == '__main__':
                         print(data["MAC_len"])
                         #key: bytes,data: bytes,header: bytes,nonce: bytes,tag: bytes,tag_size:int
                         dec_data = aes256gcm_decrypt(bytes(input_dict["key"],encoding="utf-8"),
-                            bytes(data["ciphertext"],encoding="utf-8"),
-                            bytes(data["header"],encoding="utf-8"),
-                            bytes(data["nonce"],encoding="utf-8"),
-                            bytes(data["tag"],encoding="utf-8"),
+                            base64.b64decode(data["ciphertext"]),
+                            base64.b64decode(data["header"]),
+                            base64.b64decode(data["nonce"]),
+                            base64.b64decode(data["tag"]),
                             int(data["MAC_len"]))
-                        dec_data_save_format = bytes(dec_data)
-                else:
+                        print(type(dec_data))
+                else:   
                     print("NO INPUT OF DATA")
                     exit()
             save = input("Write to disk ? (Y/n) >")
             if save.upper() == "Y":
-                write_to_file("decnewfile.bhztkdecobj",enc_data_save_format)
+                file_name = input("name of the file (include extension) >")
+                write_to_file(2,f"{file_name}",dec_data)
 
 
 
