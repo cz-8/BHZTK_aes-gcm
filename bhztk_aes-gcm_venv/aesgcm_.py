@@ -74,7 +74,7 @@ Values             Info
 --tag_size or -ts  the desired length of the MAC tag,
                    from 4 to 16 bytes (default: 16).
 
---header or -h     header for ur encrypted object
+--header           header for ur encrypted object
 
 --mode or -m       chose either encryption or decryption 
                    "enc","dec", respectively.
@@ -182,7 +182,7 @@ if __name__ == '__main__':
                 print("the provided tag_size cant be read!")
                 exit()
 
-        elif selec.upper() == "--HEADER" or selec.upper() == "-H":
+        elif selec.upper() == "--HEADER":
             try:   
                 string_header = inputs[(inputs.index(selec) + 1)]
             except:
@@ -264,8 +264,8 @@ if __name__ == '__main__':
                 } 
                 save_to_file_input = input("Save to disk ? (Y/n) >")
                 if save_to_file_input.upper() == "Y":
-                    file_name = input("Filename (include extension!!) >")
-                    with open(f"{file_name}", "w") as save_file:  
+                    file_name = input("Filename >")
+                    with open(f"{file_name}.BHZENCOBJ", "w") as save_file:  
                         json.dump(json_save_form, save_file, indent = 6)
                 else:
                     exit()
@@ -280,8 +280,8 @@ if __name__ == '__main__':
                 } 
                 save_to_file_input = input("Save to disk ? (Y/n) >")
                 if save_to_file_input.upper() == "Y":
-                    file_name = input("Filename (include extension!!) >")
-                    with open(f"{file_name}", "w") as save_file:  
+                    file_name = input("Filename >")
+                    with open(f"{file_name}.BHZENCOBJ", "w") as save_file:  
                         json.dump(json_save_form, save_file, indent = 6)
                 else:
                     exit()
@@ -289,24 +289,36 @@ if __name__ == '__main__':
                 exit()
         elif input_array[7] == "dec":
             if use_file == True:
-                with open(f"{input_array[6]}", "r") as read_file:
-                    data = json.load(read_file)
+                try:
 
-                dlf ={
+                    with open(f"{input_array[6]}", "r") as read_file:
+                        data = json.load(read_file)
 
-                        "ciphertext": base64.b64decode(data["ciphertext"]),  
-                        "header": base64.b64decode(data["header"]),
-                        "nonce":base64.b64decode(data["nonce"]),
-                        "tag":base64.b64decode(data["tag"]),
-                        "tag_size":data["tag_size"],         
-                    }
+                    dlf ={
 
-                decrypted_data = aes256gcm_decrypt(input_array[0],dlf["ciphertext"],dlf["header"],dlf["nonce"],dlf["tag"],dlf["tag_size"])
+                            "ciphertext": base64.b64decode(data["ciphertext"]),  
+                            "header": base64.b64decode(data["header"]),
+                            "nonce":base64.b64decode(data["nonce"]),
+                            "tag":base64.b64decode(data["tag"]),
+                            "tag_size":data["tag_size"],         
+                        }
+                except:
+                    print("File is not a BHZENCOBJ")
+                    exit()
+                try:
+                    decrypted_data = aes256gcm_decrypt(input_array[0],dlf["ciphertext"],dlf["header"],dlf["nonce"],dlf["tag"],dlf["tag_size"])
+                except:
+                    print("Could not decrypt file.")
+                    exit()
                 save_to_file_input = input("Save to disk ? (Y/n) >")
-                if save_to_file_input.upper() == "Y":
-                    file_name = input("Filename (include extension!!) >")
-                    write_to_disk(f"{file_name}",decrypted_data)    
-                else:
+                try:
+                    if save_to_file_input.upper() == "Y":
+                        file_name = input("Filename (include extension!!) >")
+                        write_to_disk(f"{file_name}",decrypted_data)    
+                    else:
+                        exit()
+                except:
+                    print("Could not save file to disk...")
                     exit()
             elif use_file == False:
                 print("Only files can be decrypted...")
